@@ -41,6 +41,8 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 9. Clean up all **implementer subagent** worktrees. <!-- fork --> Also run the repo's cleanup command if its AGENTS.md names one (also run it before step 1), so leftover worktrees and database slots from earlier runs never pile up.
 
-<!-- fork --> ## Unattended
+<!-- fork -->
+
+## Unattended
 
 The user may leave while this runs. Never wait for them. If a ticket cannot proceed without a decision that no `Assumption:` can settle, report it and leave it; the rest of the frontier keeps going.
