@@ -161,6 +161,8 @@ Concrete evidence that the change works. Show a before and after.
 
 Screenshots are S-tier - when the environment is set up for it and the change is visual.
 
+<!-- fork --> Required whenever the change alters a screen: one image per changed state at desktop width (1280) and mobile width (375), never stitched together, put in the PR body.
+
 Execution-based evidence is A-tier. Test results, console output. Show the exact test that now fails and passes, using pseudocode.
 
 ### Merge Danger

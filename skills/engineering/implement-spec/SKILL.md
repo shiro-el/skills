@@ -27,14 +27,20 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Each implementer subagent:
    - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
    - calls the Skill tool with `tdd` to build the ticket;
+   - <!-- fork --> runs only unit checks, typechecking and the repo's changed-files check; it never starts a database, container or dev server, whatever the repo's integration instructions say (the orchestrator does that once, in step 7);
+   - <!-- fork --> never stops to ask the user. On an ambiguous point it takes the safest reversible reading, comments `Assumption: <what, and why>` on its ticket, and carries on;
    - merges the integration branch tip into its own branch before reporting done
 
 5. Once an **implementer subagent** completes, merge its work to the integration branch with a **merger subagent**.
 
 6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
 
-7. Once all tickets are complete, call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
+7. Once all tickets are complete, <!-- fork --> run the repo's database and integration verification yourself, once, serially, on the integration branch (one database slot at a time, released afterwards). Then call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
 
-8. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
+8. <!-- fork --> Collect every `Assumption:` comment into an `## Assumptions` section of the PR body, so the user checks them once, at the end. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
 
-9. Clean up all **implementer subagent** worktrees.
+9. Clean up all **implementer subagent** worktrees. <!-- fork --> Also run the repo's cleanup command if its AGENTS.md names one (also run it before step 1), so leftover worktrees and database slots from earlier runs never pile up.
+
+<!-- fork --> ## Unattended
+
+The user may leave while this runs. Never wait for them. If a ticket cannot proceed without a decision that no `Assumption:` can settle, report it and leave it; the rest of the frontier keeps going.
