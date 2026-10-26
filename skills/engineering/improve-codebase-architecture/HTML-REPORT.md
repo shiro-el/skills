@@ -1,6 +1,6 @@
 # HTML Report Format
 
-The architectural review is rendered as a single self-contained HTML file in the OS temp directory. Tailwind and Mermaid both come from CDNs. Mermaid handles graph-shaped diagrams reliably; hand-built divs and inline SVG handle the more editorial visuals (mass diagrams, cross-sections). Mix the two: don't lean on Mermaid for everything, it'll start to look generic.
+The architectural review is rendered as a single self-contained HTML file in the OS temp directory. Tailwind and [Pele](https://github.com/obsidianmd/pele) both come from CDNs. Pele renders Mermaid syntax to SVG, so graph-shaped diagrams are still written as Mermaid text. Hand-built divs and inline SVG handle the more editorial visuals (mass diagrams, cross-sections). Mix the two: don't lean on Mermaid syntax for everything, it'll start to look generic.
 
 ## Scaffold
 
@@ -11,11 +11,20 @@ The architectural review is rendered as a single self-contained HTML file in the
     <meta charset="utf-8" />
     <title>Architecture review for {{repo name}}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script type="module">
-      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
-      mermaid.initialize({ startOnLoad: true, theme: "neutral", securityLevel: "loose" });
+    <script src="https://cdn.jsdelivr.net/npm/pele@1/dist/pele.global.js"></script>
+    <script>
+      addEventListener("DOMContentLoaded", () => {
+        for (const el of document.querySelectorAll("pre.mermaid")) pele.mount(el, el.textContent);
+      });
     </script>
     <style>
+      /* Pele reads its theme from CSS variables, so match the page palette */
+      :root {
+        --pele-bg: transparent;
+        --pele-fg: #0f172a;
+        --pele-accent: #059669;
+        --pele-font: ui-sans-serif, system-ui, sans-serif;
+      }
       /* small custom layer for things Tailwind doesn't cover cleanly:
          dashed seam lines, hand-drawn-feeling arrow heads, etc. */
       .seam { stroke-dasharray: 4 4; }
@@ -97,7 +106,7 @@ Before: a tree of function calls rendered as nested boxes. After: the same tree 
 - Colour sparingly: one accent (emerald or indigo) plus red for leakage and amber for warnings.
 - Keep diagrams ~320px tall so before/after sits comfortably side by side without scrolling.
 - Use `text-xs uppercase tracking-wider` for module labels inside diagrams, so they read as schematic, not as UI.
-- The only scripts are the Tailwind CDN and the Mermaid ESM import. The report is otherwise static: no app code, no interactivity beyond Mermaid's own rendering.
+- The only scripts are the Tailwind CDN, the Pele CDN, and the short loop that mounts Pele on each `pre.mermaid`. The report is otherwise static: no app code, no interactivity.
 
 ## Top recommendation section
 
