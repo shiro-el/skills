@@ -1,3 +1,5 @@
+<!-- fork: do not create ADR files. Use this page only to judge whether a decision qualifies; record it as `domain-modeling` describes. -->
+
 # ADR Format
 
 ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
