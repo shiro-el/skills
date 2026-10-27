@@ -35,7 +35,9 @@ The architectural review is rendered as a single self-contained HTML file in the
   <body class="bg-stone-50 text-slate-900 font-sans">
     <main class="max-w-5xl mx-auto px-6 py-12 space-y-12">
       <header>...</header>
+      <section id="defects">...</section>
       <section id="candidates" class="space-y-10">...</section>
+      <section id="rejected">...</section>
       <section id="top-recommendation">...</section>
     </main>
   </body>
@@ -44,7 +46,11 @@ The architectural review is rendered as a single self-contained HTML file in the
 
 ## Header
 
-Repo name, date, and a compact legend: solid box = module, dashed line = seam, red arrow = leakage, thick dark box = deep module. No introduction paragraph. Straight into the candidates.
+Repo name, date, and a compact legend: solid box = module, dashed line = seam, red arrow = leakage, thick dark box = deep module. One line naming the debate opponent (Codex or Claude) and the debate folder path. No introduction paragraph.
+
+## Defects found
+
+A compact red-bordered list, before the candidates: `D1`, `D2`, … with one sentence each, the file:line in `font-mono`, the candidate it came from, and a `confirmed` or `unconfirmed` tag. Omit the section when the debates found none.
 
 ## Candidate card
 
@@ -53,13 +59,14 @@ The diagrams carry the weight. Prose is sparse, plain, and uses the glossary ter
 Each candidate is one `<article>`:
 
 - **Title**: short, names the deepening (e.g. "Collapse the Order intake pipeline").
-- **Badge row**: recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), plus a tag for the dependency category (`in-process`, `local-substitutable`, `ports & adapters`, `mock`).
+- **Badge row**: the debated recommendation strength (`Strong` = emerald, `Worth exploring` = amber, `Speculative` = slate), with the original strength struck through beside it when the debate changed it (e.g. ~~Strong~~ → Worth exploring), plus a tag for the dependency category (`in-process`, `local-substitutable`, `ports & adapters`, `mock`).
 - **Files**: monospaced list, `font-mono text-sm`.
 - **Before / After diagram**: the centrepiece. Two columns, side by side. See patterns below.
 - **Problem**: one sentence. What hurts.
 - **Solution**: one sentence. What changes.
 - **Wins**: bullets, ≤6 words each. e.g. "Tests hit one interface", "Pricing logic stops leaking", "Delete 4 shallow wrappers".
 - **ADR callout** (if applicable): one line in an amber-tinted box.
+- **Disagreements left** (if any): one line each, both sides' argument, in a slate-tinted box.
 
 No paragraphs of explanation. If the diagram needs a paragraph to be understood, redraw the diagram.
 
@@ -108,9 +115,13 @@ Before: a tree of function calls rendered as nested boxes. After: the same tree 
 - Use `text-xs uppercase tracking-wider` for module labels inside diagrams, so they read as schematic, not as UI.
 - The only scripts are the Tailwind CDN, the Pele CDN, and the short loop that mounts Pele on each `pre.mermaid`. The report is otherwise static: no app code, no interactivity.
 
+## Rejected section
+
+A plain list after the cards: candidate title, one line on why the debate rejected it. No diagrams.
+
 ## Top recommendation section
 
-One larger card. Candidate name, one sentence on why, anchor link to its card. That's it.
+One larger card. Candidate name, one sentence on why, anchor link to its card. Close the page with one line telling the reader to reply with candidate numbers and `D` ids to turn into issues.
 
 ## Tone
 

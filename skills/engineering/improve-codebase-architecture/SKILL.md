@@ -1,6 +1,6 @@
 ---
 name: improve-codebase-architecture
-description: Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.
+description: Scan a codebase for deepening opportunities, debate each one, present the survivors as a visual HTML report, then register the ones you pick as issues.
 disable-model-invocation: true
 ---
 
@@ -12,6 +12,9 @@ This command is _informed_ by the project's domain model and built on a shared d
 
 - Call the Skill tool with "codebase-design" for the architecture vocabulary (**module**, **interface**, **depth**, **seam**, **adapter**, **leverage**, **locality**) and its principles (the deletion test, "the interface is the test surface", "one adapter = hypothetical seam, two = real"). Use these terms exactly in every suggestion, and don't drift into "component," "service," "API," or "boundary."
 - The domain language in `GLOSSARY.md` gives names to good seams; ADRs in `docs/adr/` record decisions this command should not re-litigate.
+
+<!-- fork -->
+The user should need to say three things: the command, which candidates to take, and later `/implement-spec` with the issues this run registers. Everything between those is yours.
 
 ## Process
 
@@ -34,20 +37,30 @@ Then spawn a sub-agent to walk the codebase. Don't follow rigid heuristics; expl
 
 Apply the **deletion test** to anything you suspect is shallow: would deleting it concentrate complexity, or just move it? A "yes, concentrates" is the signal you want.
 
-### 2. Present candidates as an HTML report
+<!-- fork -->
+### 2. Debate every candidate
 
-Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user (`xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows) and tell them the absolute path.
+Cross-examine every candidate before showing any of them: one debate subagent per candidate, all in parallel, each arguing against an independent opponent (Codex when its CLI is installed, else a fresh Claude subagent). Follow [DEBATE.md](DEBATE.md) for the setup, the debate subagent's brief, the report format, and the opponent instructions. The step is done when every candidate has a debate report and you have checked every claimed defect and verdict change against the code yourself.
+
+### 3. Present the debated candidates as an HTML report
+
+Write the report once, from the debate reports. Write a self-contained HTML file to the OS temp directory so nothing lands in the repo. Resolve the temp dir from `$TMPDIR`, falling back to `/tmp` (or `%TEMP%` on Windows), and write to `<tmpdir>/architecture-review-<timestamp>.html` so each run gets a fresh file. Open it for the user (`xdg-open <path>` on Linux, `open <path>` on macOS, `start <path>` on Windows) and tell them the absolute path.
 
 The report uses **Tailwind via CDN** for layout and styling, and **Pele via CDN** (renders Mermaid syntax to SVG) for diagrams where a graph/flow/sequence reliably communicates the structure. Mix Mermaid with hand-crafted CSS/SVG visuals: use Mermaid when relationships are graph-shaped (call graphs, dependencies, sequences), and hand-built divs/SVG when you want something more editorial (mass diagrams, cross-sections, collapse animations). Each candidate gets a **before/after visualisation**. Be visual.
 
-For each candidate, render a card with:
+Open with a **Defects found** section: every defect from the debates, numbered `D1`, `D2`, …, each with its file:line and whether you confirmed it in the code.
+
+For each candidate the debate did not reject, render a card with:
 
 - **Files**: which files/modules are involved
-- **Problem**: why the current architecture is causing friction
-- **Solution**: plain English description of what would change
+- **Problem**: the agreed problem
+- **Solution**: the agreed solution in plain English, at the rough interface shape the debate reached
 - **Benefits**: explained in terms of locality and leverage, and how tests would improve
 - **Before / After diagram**: side-by-side, custom-drawn, illustrating the shallowness and the deepening
-- **Recommendation strength**: one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge
+- **Recommendation strength**: the debated verdict, one of `Strong`, `Worth exploring`, `Speculative`, rendered as a badge, with the original strength beside it when it changed
+- **Disagreements left**: each in one line, when the debate left any
+
+List rejected candidates after the cards, one line each with the reason, so a future run can see why.
 
 End the report with a **Top recommendation** section: which candidate you'd tackle first and why.
 
@@ -57,11 +70,11 @@ End the report with a **Top recommendation** section: which candidate you'd tack
 
 See [HTML-REPORT.md](HTML-REPORT.md) for the full HTML scaffold, diagram patterns, and styling guidance.
 
-Do NOT propose interfaces yet. After the file is written, ask the user: "Which of these would you like to explore?"
+After the file is written, ask the user once: "Which candidates and defects should become issues?" They answer with numbers and `D` ids in one reply.
 
-### 3. Grilling loop
+### 4. Settle the disagreements left
 
-Once the user picks a candidate, call the Skill tool with "grilling" to walk the decision tree with them: constraints, dependencies, the shape of the deepened module, what sits behind the seam, what tests survive.
+Only a picked candidate whose debate left a disagreement gets an interview, and only on that disagreement: call the Skill tool with "grilling", scoped to it. Every other picked candidate goes straight to step 5. When the user says to skip grilling, record each disagreement in its issue as an open question instead.
 
 Side effects happen inline as decisions crystallize; call the Skill tool with "domain-modeling" to keep the domain model current as you go:
 
@@ -69,3 +82,22 @@ Side effects happen inline as decisions crystallize; call the Skill tool with "d
 - **Sharpening a fuzzy term during the conversation?** Update `GLOSSARY.md` right there.
 - **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed as: _"Want me to record this as an ADR so future architecture reviews don't re-suggest it?"_ Only offer when the reason would actually be needed by a future explorer to avoid re-suggesting the same thing; skip ephemeral reasons ("not worth it right now") and self-evident ones.
 - **Want to explore alternative interfaces for the deepened module?** Call the Skill tool with "codebase-design" and use its design-it-twice parallel sub-agent pattern.
+
+### 5. Register the picks as issues
+
+The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`, and stop after printing the issue bodies.
+
+Create one issue per picked candidate and one per picked defect, with the tracker's agent-ready triage label. Title in the repo's issue language; the body carries, from the debate report and step 4:
+
+- problem, solution, and what the debate cut (**not doing**);
+- the first step;
+- evidence, with file:line;
+- tests: what the interface test surface becomes;
+- decided disagreements as decisions, undecided ones as open questions;
+- how to verify the change.
+
+Link candidates the debate found related, and link each defect to the candidate it came from.
+
+### 6. Hand off
+
+End with the registered issues and one line for the user to run next: `/implement-spec <issue> <issue> …`, listing every issue from step 5. That run builds, verifies, reviews and opens a PR per issue, splitting a large one into tickets itself, so no spec or ticket step sits in between.

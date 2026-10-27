@@ -57,7 +57,7 @@ A starting situation that generates work, then merges onto the main flow.
 
 Not feature work, just upkeep.
 
-- **`/improve-codebase-architecture`** runs whenever you have a spare moment to keep the codebase good for agents to operate in. It surfaces **deepening opportunities**; picking one _generates an idea_ you can take into the main flow at `/grill-with-docs`. It's the survey that finds the candidates; **`/codebase-design`** (below) is the bench you design the chosen one on.
+- **`/improve-codebase-architecture`** runs whenever you have a spare moment to keep the codebase good for agents to operate in. It surfaces **deepening opportunities**, <!-- fork --> has each one debated against an independent opponent, and registers the ones you pick as agent-ready issues, ending with the `/implement-spec` line that builds them. A candidate you want to think through at length goes into the main flow at `/grill-with-docs` instead. It's the survey that finds the candidates; **`/codebase-design`** (below) is the bench you design the chosen one on.
 
 ## Vocabulary underneath
 

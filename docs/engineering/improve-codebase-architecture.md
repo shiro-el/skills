@@ -1,8 +1,8 @@
 ## What it does
 
-`improve-codebase-architecture` surveys a codebase for **deepening opportunities**. These are places where a shallow module (an interface nearly as complex as the thing it hides) could become a deep one. It writes them up as a self-contained HTML report, and then [grills](https://www.aihero.dev/ai-coding-dictionary/grilling) you through the one you pick.
+`improve-codebase-architecture` surveys a codebase for **deepening opportunities**. These are places where a shallow module (an interface nearly as complex as the thing it hides) could become a deep one. Before you see any of them, it has each candidate debated: one subagent argues the case, an independent opponent (Codex when its CLI is installed, otherwise a fresh Claude subagent) checks the evidence and attacks it. The survivors go into a self-contained HTML report, and the candidates you pick become issues on your tracker, ready for [implement-spec](https://aihero.dev/skills-implement-spec).
 
-It never changes the code. The whole run produces a conversation and one HTML file in your OS temp directory. You do the refactor later, in a separate [session](https://www.aihero.dev/ai-coding-dictionary/session), through the normal build flow. This makes it a survey, not a refactoring tool, so you can run it on a codebase you are not ready to touch yet.
+It never changes the code. The whole run produces debate notes and one HTML file in your OS temp directory, plus the issues you asked for. The refactor happens later, in a separate [session](https://www.aihero.dev/ai-coding-dictionary/session), when you run `/implement-spec` on those issues. This makes it a survey, not a refactoring tool, so you can run it on a codebase you are not ready to touch yet.
 
 Two filters stop the report from becoming generic cleanup advice. First, every candidate must pass the **deletion test**: if you removed this module, would its complexity move behind a smaller interface, or spread across the callers? Only the first case gets a card. Second, unless you point it at a specific area, it reads recent commit history first and focuses the scan on paths that change often. A deepening in code that nobody touches is a refactor that never pays back.
 
@@ -27,9 +27,9 @@ Where it is confusable with siblings:
 
 ## Prerequisites
 
-None to run it. If `GLOSSARY.md` or ADRs in `docs/adr/` exist, it reads them and uses your domain's own nouns. A candidate then reads as "deepen the Order intake module," not "refactor the FooBarHandler."
+An issue tracker configured by [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills), for the last step. Without one, the run prints the issue bodies instead of creating them. Codex is optional: with the `codex` CLI installed it plays the opponent in each debate, and without it a fresh Claude subagent does. If `GLOSSARY.md` or ADRs in `docs/adr/` exist, it reads them and uses your domain's own nouns. A candidate then reads as "deepen the Order intake module," not "refactor the FooBarHandler."
 
-It writes in two places. The report goes to `<tmpdir>/architecture-review-<timestamp>.html`, outside the repo. During the grilling loop it adds or sharpens terms in `GLOSSARY.md`, and creates that file if it does not exist. It also offers to record a rejected candidate as an ADR, so a future run does not suggest it again.
+It writes in three places. The report and the debate notes go to your temp directory, outside the repo. The picked candidates and defects become issues on your tracker. When a disagreement needs settling, it adds or sharpens terms in `GLOSSARY.md`, and creates that file if it does not exist. It also offers to record a rejected candidate as an ADR, so a future run does not suggest it again.
 
 ## Depth, and the report that hunts for it
 
@@ -49,17 +49,21 @@ Each candidate is a card with the files involved, the friction, a plain-English 
 | `Worth exploring` | Plausible deepening, but the payoff depends on where the code is going next. |
 | `Speculative` | Included for completeness. You can ignore most of these. |
 
-The report ends with a **Top recommendation**, the candidate it would do first. Then the skill stops and asks which candidate you want to explore. At that point you have decided nothing, and no code has changed.
+The badge is the debated verdict, with the original strength beside it when the debate changed it. Rejected candidates get one line each at the end, with the reason, so you can see what was cut and why. Above the cards, a **Defects found** section lists real bugs either side of a debate turned up in today's code, each checked against the code before it reaches the report. In practice this section can matter more than the refactors.
+
+The report ends with a **Top recommendation**, the candidate it would do first. Then the skill stops and asks which candidates and defects should become issues. You answer once, with numbers and `D` ids. At that point no code has changed.
 
 ## What happens after you pick one
 
-When you pick a candidate, a [grilling](https://aihero.dev/skills-grilling) session starts on it. It covers the constraints, what goes behind the seam, which tests survive, and what the deepened interface should look like. The output of that session is a decision, not a diff. From there the normal flow applies: take the decision into [to-spec](https://aihero.dev/skills-to-spec), then [to-tickets](https://aihero.dev/skills-to-tickets), then [implement](https://aihero.dev/skills-implement).
+Most picks go straight to an issue. The debate already settled the problem, the rough shape behind the seam, what to cut, and the first step, so a [grilling](https://aihero.dev/skills-grilling) session runs only for a picked candidate whose debate left a disagreement, and only on that disagreement. Say "skip grilling" and those disagreements go into the issue as open questions instead.
+
+Each issue carries the debate's conclusion: problem, solution, what not to do, first step, evidence with file:line, the test surface, decisions and open questions, and how to verify. The run ends with one line to type next, `/implement-spec` followed by every issue it created. That run builds, reviews and opens a PR per issue, and splits a large one into tickets itself, so [to-spec](https://aihero.dev/skills-to-spec) and [to-tickets](https://aihero.dev/skills-to-tickets) are optional here.
 
 ## Common questions
 
 **It grilled me for an hour about one idea instead of showing me options. Can I turn that off?**
 
-Yes. Say so when you invoke it ("don't grill me, just show the report"). This is the most common complaint about the skill. One user liked it as "a convenient way to get a thorough analysis of improvements," but after the grilling loop was added, found it "borderline unusable." In their sessions it proposed a single solution and then asked "10's or 100's of questions." The design intent is that the report comes first, and the grilling starts only on a candidate you chose. But weaker [models](https://www.aihero.dev/ai-coding-dictionary/model) skip straight to an interview about the first idea they had. Results in that thread vary a lot by model. It is an open issue, and the skill does not yet have a documented no-grill mode.
+Mostly, yes, and now by default. This was the most common complaint about the skill. One user liked it as "a convenient way to get a thorough analysis of improvements," but after the grilling loop was added, found it "borderline unusable." In their sessions it proposed a single solution and then asked "10's or 100's of questions." The debate step now settles most of those questions before you see the report. Grilling runs only on a disagreement the debate left open, for a candidate you picked. Say "skip grilling" and even those become open questions in the issue. Weaker [models](https://www.aihero.dev/ai-coding-dictionary/model) may still jump into an interview early; if one does, point it back at the report.
 
 **The report opened as unstyled raw HTML with no diagrams. What happened?**
 
@@ -67,7 +71,7 @@ The report loads Tailwind and Pele (a Mermaid-syntax renderer) from CDNs, so it 
 
 **It gave me twelve candidates. Do I work through them in the same session or start a new one?**
 
-Use one candidate per session. If you work through several in one conversation, the [context window](https://www.aihero.dev/ai-coding-dictionary/context-window) fills with the report, the grilling, the domain-model edits and the code changes all at once. The report is only a temp file, so carry the candidate forward, not the file. Pick one, grill it, and take the decision into `/to-spec`. Turn the rest into [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) that you can pick up separately later. Put the chosen improvement into a spec instead of going straight to implementation. People ask this often, and the skill itself documents no workflow for it.
+Neither. Pick every one worth doing in one reply; the run turns each into an issue and the code changes happen later, in one `/implement-spec` run that takes them all and gives each its own branch and PR. The report is only a temp file, so the issues are what carry the candidates forward. Leave the ones you don't pick: the report lists why the debate demoted or rejected them, and a future run will find any that still matter.
 
 **How should I prompt it?**
 
@@ -97,8 +101,10 @@ The skill does not ship a good answer. People often ask for a `TYPESCRIPT.md` wi
 
 - The candidates name your domain's concepts, not invented class names: "the Order intake module," not "the FooBarHandler."
 - The candidates are in files you edited recently, not in parts of the repo nobody touches.
-- No code changed during the run. The only new file is the HTML report in your temp directory.
-- It stops after the report and asks which candidate you want. It does not continue on its own.
+- No code changed during the run. The only new files are the report and the debate notes in your temp directory.
+- Each candidate has a debate report before the HTML is written, and some verdicts moved: a run where every `Strong` stayed `Strong` probably skipped the opponent.
+- It stops after the report and asks once which candidates and defects to register. It does not continue on its own.
+- It ends with one `/implement-spec` line naming every issue it created.
 - Each card explains the payoff as locality or leverage, and says which tests get simpler, not just "this is cleaner."
 - When you reject a candidate for a lasting reason, it offers to record an ADR, so the next run does not suggest it again.
 
@@ -107,7 +113,7 @@ The skill does not ship a good answer. People often ask for a `TYPESCRIPT.md` wi
 `improve-codebase-architecture` is **periodic maintenance**. You run it every few days, outside any chain, to queue up work, not to do it. Its neighbours:
 
 - [codebase-design](https://aihero.dev/skills-codebase-design) owns the depth-and-seam vocabulary that every candidate uses.
-- [grilling](https://aihero.dev/skills-grilling) walks the decision tree after you choose a candidate.
+- [grilling](https://aihero.dev/skills-grilling) settles a disagreement the debate left open, on a candidate you chose.
 - [domain-modeling](https://aihero.dev/skills-domain-modeling) keeps `GLOSSARY.md` and the ADRs current as you make the decision.
 
-Its output is an idea, which goes back into the main build flow at [grill-with-docs](https://aihero.dev/skills-grill-with-docs) or [to-spec](https://aihero.dev/skills-to-spec). Its counterpart at the end of the main flow is [retro](https://aihero.dev/skills-retro). This skill improves the code the agent works in, and `retro` improves the environment around it (checks, standards, steering files) after a build. For which skill fits a situation, [ask-matt](https://aihero.dev/skills-ask-matt) is the router over the whole set.
+Its output is a set of agent-ready issues, which go straight to [implement-spec](https://aihero.dev/skills-implement-spec). For a candidate you want to think through at length first, take it into [grill-with-docs](https://aihero.dev/skills-grill-with-docs) instead. Its counterpart at the end of the main flow is [retro](https://aihero.dev/skills-retro). This skill improves the code the agent works in, and `retro` improves the environment around it (checks, standards, steering files) after a build. For which skill fits a situation, [ask-matt](https://aihero.dev/skills-ask-matt) is the router over the whole set.
