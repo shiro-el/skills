@@ -30,9 +30,11 @@ Each lane lands on one branch. Each implementer:
 2. builds its ticket with [tdd](https://aihero.dev/skills-tdd), red-green one slice at a time,
 3. merges the integration branch tip into its own branch before reporting done, so landing it is a fast-forward.
 
-Implementers never start a database or container. The orchestrator runs that verification itself, one lane at a time on one database slot, so parallel lanes never fight over local infrastructure. A failing test gets one solo re-run; if it passes it is reported as flaky rather than fixed.
+Implementers run your repo's checks for their ticket, database and integration suites included. Once every ticket in a lane has landed, the lane is verified again on its integration branch, with the database started and stopped the way your repo's AGENTS.md says. A failing test gets one solo re-run; if it passes it is reported as flaky rather than fixed.
 
-The tracker decides whether a pull request exists at all. If your tracker closes work through PRs, or you ask for one, each lane's PR opens once, at the end, ready for review: after verification, review, fixes, and a check that parallel lanes did not pick the same migration version. Its body collects every `Assumption:` comment, each finding left unfixed with the reason, follow-up issues, and flaky tests. Otherwise the run stops on each integration branch with every ticket resolved the way your tracker closes work, which works fully offline against a local markdown tracker.
+The tracker decides whether a pull request exists at all. If your tracker closes work through PRs, or you ask for one, each lane's PR opens once, at the end: after verification, review, fixes, and a check that parallel lanes did not pick the same migration version. A lane that is safe to merge opens ready for review. A lane that is not, such as one stacked on another lane's unmerged PR or one whose verification could not run, opens as a draft that names what it waits on, and the final table shows which is which. Its body collects every `Assumption:` comment, each finding left unfixed with the reason, follow-up issues, and flaky tests. Otherwise the run stops on each integration branch with every ticket resolved the way your tracker closes work, which works fully offline against a local markdown tracker.
+
+The final table ends the unattended run. After it, you drive: the agent does only what each of your messages asks.
 
 Implementers talk to the orchestrator through [context pointers](https://www.aihero.dev/ai-coding-dictionary/context-pointer) (the spec, the ticket, shared exploration notes, earlier commits) rather than pasted summaries. This keeps each subagent's prompt small and leaves room in the orchestrator's window for the graph.
 
@@ -76,7 +78,7 @@ A worktree holds only what git tracks. Tests that read gitignored fixtures, loca
 - A ticket starts as soon as its last blocker lands on the integration branch, not when the whole run ends.
 - Every ticket's trace shows `tdd` running, with a failing test before the code.
 - Merges into the integration branch are fast-forwards, not conflict resolutions.
-- Only one lane at a time holds a database slot, and none is left running at the end.
+- No local database the run started is left running at the end.
 - Each lane's trace shows one `code-review` call, after its verification and before its PR.
 - The run ends with one table, a row per lane, and a PR per lane only if your tracker wanted one.
 
