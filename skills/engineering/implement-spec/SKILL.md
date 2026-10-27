@@ -1,48 +1,62 @@
 ---
 name: implement-spec
-description: "Implement the result of /to-spec and /to-tickets in code."
+description: "Implement one or more issues end to end, each as its own lane: built, verified, reviewed, fixed, and opened as a PR."
 disable-model-invocation: true
 ---
 
-You have been provided a spec. This spec should have tickets associated with it, describing how to implement the spec.
+<!-- fork -->
+
+You have been given one or more issues: a spec with tickets, a single ticket, or a large issue that has no tickets yet.
 
 The issue tracker should have been provided to you. If not, tell the user to run `/setup-matt-pocock-skills`.
 
-The goal is the entire spec implemented on a single **integration branch**, with every ticket resolved the way the issue tracker closes work.
+Each issue becomes a **lane**: its own **integration branch**, built, verified, reviewed and fixed, ending in its own PR. The user typed one command and is not watching. The run is done when every lane has a reviewed PR open (or is reported as blocked), every review finding is fixed or listed in its PR body, and no worktree or database slot from the run is left running.
 
-The tickets are not a list of steps. They are a **task graph** with blocking relationships between them. This means there is always a **frontier** of tickets which are ready to be grabbed.
+A lane's tickets are not a list of steps. They are a **task graph** with blocking relationships between them, so each lane always has a **frontier** of tickets ready to be grabbed. Work every lane's frontier at once.
 
-Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: to the spec, tickets, research notes, and previous commits. Don't duplicate information already available via pointers.
+Communication to and from subagents should be sparse. Communicate primarily through **context pointers**: to the issues, tickets, research notes, and previous commits. Don't duplicate information already available via pointers.
 
 **Implementer subagents** should be run in the background where possible for maximum concurrency.
 
 ## Steps
 
-1. Read the spec and tickets to understand the task graph.
+1. **Preflight.** Run the repo's cleanup command if its AGENTS.md names one, so leftover worktrees and database slots from earlier runs are gone. Fetch every issue and give each one a lane:
+   - an issue with sub-issues: its tickets and their blocking edges are the lane's task graph;
+   - an issue one implementer can land in a single context window: a graph of one ticket, the issue itself;
+   - a larger issue with no sub-issues: split it into tracer-bullet vertical slices, create them as sub-issues with blocking edges, and comment `Assumption: split into <tickets>, because <why>` on the issue.
 
-2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. Ensure the exploration subagent can save files - it should save its markdown notes in a directory outside the repo, accessible by all future subagents. This lets **implementer subagents** focus on implementation rather than exploration.
+   Cut each lane's integration branch from the base branch: the one PRs target according to the repo's AGENTS.md or tracker doc, else the default branch.
 
-3. Create the integration branch. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
+2. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation. It saves its markdown notes in a directory outside the repo, accessible by all future subagents, so **implementer subagents** focus on implementation rather than exploration.
 
-4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Each implementer subagent:
-   - confirms its worktree is based on the integration branch before starting, and resets onto it if not;
+3. **Build.** Use **implementer subagents** to implement each frontier ticket, across all lanes, each in its own worktree on its own branch. Each implementer subagent:
+   - confirms its worktree is based on its lane's integration branch before starting, and resets onto it if not;
    - calls the Skill tool with `tdd` to build the ticket;
-   - <!-- fork --> runs only unit checks, typechecking and the repo's changed-files check; it never starts a database, container or dev server, whatever the repo's integration instructions say (the orchestrator does that once, in step 7);
-   - <!-- fork --> never stops to ask the user. On an ambiguous point it takes the safest reversible reading, comments `Assumption: <what, and why>` on its ticket, and carries on;
-   - merges the integration branch tip into its own branch before reporting done
+   - runs only unit checks, typechecking and the repo's changed-files check; it never starts a database, container or dev server, whatever the repo's integration instructions say (you do that, in step 5);
+   - never stops to ask the user. On an ambiguous point it takes the safest reversible reading, comments `Assumption: <what, and why>` on its ticket, and carries on;
+   - merges its lane's integration branch tip into its own branch before reporting done.
 
-5. Once an **implementer subagent** completes, merge its work to the integration branch with a **merger subagent**.
+4. Once an **implementer subagent** completes, merge its work to its lane's integration branch with a **merger subagent**. If this changes the lane's **frontier**, kick off more implementer subagents straight away.
 
-6. If this changes the **frontier** of available tickets, kick off more **implementer subagents** to work on the new tickets. This allows for maximum concurrency.
+5. **Verify.** When every ticket in a lane has merged, queue the lane. Run the repo's database and integration verification yourself, one lane at a time, holding one database slot and stopping it afterwards; other lanes keep building meanwhile. When a test fails, re-run that test alone once: if it passes, record it as flaky for the lane's PR body; if it fails again, it is a finding for step 7.
 
-7. Once all tickets are complete, <!-- fork --> run the repo's database and integration verification yourself, once, serially, on the integration branch (one database slot at a time, released afterwards). Then call the Skill tool with `code-review` on the integration branch. Fix all issues raised by the code review in a single **implementer subagent**.
+6. **Review.** For each verified lane, call the Skill tool with `code-review`. The fixed point is the merge-base of the lane's integration branch with the base branch. Each lane gets exactly one review.
 
-8. <!-- fork --> Collect every `Assumption:` comment into an `## Assumptions` section of the PR body, so the user checks them once, at the end. If a draft PR exists, mark it ready for review. Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
+7. **Fix.** Give each lane's review report to a single **implementer subagent**, which fixes every finding inside the lane's issue. A finding that belongs to other work becomes a new follow-up issue, linked to the lane's issue. Then re-check the lane with focused checks only: back through step 5 if the fixes touched the database schema or migrations, otherwise the affected test files. A fix never triggers a second review.
 
-9. Clean up all **implementer subagent** worktrees. <!-- fork --> Also run the repo's cleanup command if its AGENTS.md names one (also run it before step 1), so leftover worktrees and database slots from earlier runs never pile up.
+8. **Cross-lane checks.** Update each lane onto the latest base branch tip the way the repo's history rules say. Then check what parallel lanes can break between them:
+   - every new migration version is unique across all lanes and the base branch; renumber the later lane's with the repo's migration tool and regenerate what it generates;
+   - files touched by more than one lane are named, with a suggested merge order, in each of those PRs' bodies.
 
-<!-- fork -->
+9. **PR.** If the issue tracker closes work through PRs, or the user asks for one, open each lane's PR ready for review, never as a draft, marked as closing its issue and tickets. Call the Skill tool with `pr` for the body. Besides the `pr` template, the body carries:
+   - `## Assumptions`: every `Assumption:` comment from the lane's issue and tickets, so the user checks them once, at the end;
+   - each finding left unfixed, with the reason, and each follow-up issue created in step 7;
+   - each flaky test from step 5.
+
+   Otherwise, resolve each ticket the way the issue tracker closes work, and report the integration branch.
+
+10. **Clean up and report.** Remove every implementer subagent worktree, stop every database slot the run used, and run the repo's cleanup command again. End with one table, a row per lane: issue, PR or branch, verification result, findings fixed and left, assumptions, flaky tests.
 
 ## Unattended
 
-The user may leave while this runs. Never wait for them. If a ticket cannot proceed without a decision that no `Assumption:` can settle, report it and leave it; the rest of the frontier keeps going.
+Never wait for the user. A lane that cannot proceed without a decision no `Assumption:` can settle is reported as blocked in the final table and left there; every other lane keeps going.

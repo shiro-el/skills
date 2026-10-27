@@ -55,7 +55,7 @@ Correct, and expected. `implement` has no completion step. It ends at the review
 
 **Can I point it at all my tickets at once, or run several in parallel?**
 
-Not with `/implement`: one invocation, one ticket. For a whole spec in one run, use [implement-spec](https://aihero.dev/skills-implement-spec), which gives each ticket on the ready frontier to a [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) in its own worktree, then merges the results onto one integration branch. Running several `/implement` sessions side by side in one checkout is worse than unsupported. One field report describes a `git commit --amend` in one session landing on another session's commit, a stash vanishing from `refs/stash`, and commits landing on the wrong branch, all in a single afternoon across three issues. The sessions share one working directory, one index, and one HEAD. Users work around this with git worktrees, but `refs/stash` is shared across worktrees too, so worktrees alone do not fix the stash case.
+Not with `/implement`: one invocation, one ticket. For a whole spec, or several issues at once with one PR each, use [implement-spec](https://aihero.dev/skills-implement-spec), which gives each ticket on the ready frontier to a [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) in its own worktree, then merges the results onto one integration branch. Running several `/implement` sessions side by side in one checkout is worse than unsupported. One field report describes a `git commit --amend` in one session landing on another session's commit, a stash vanishing from `refs/stash`, and commits landing on the wrong branch, all in a single afternoon across three issues. The sessions share one working directory, one index, and one HEAD. Users work around this with git worktrees, but `refs/stash` is shared across worktrees too, so worktrees alone do not fix the stash case.
 
 **Can it open a pull request instead of committing?**
 
@@ -69,7 +69,7 @@ Separately, some people do not want the review inside the run at all, because an
 
 **I started `/implement` in another session or subagent, and it skipped `tdd` and the review.**
 
-The skill never loaded. A slash command expands only when it opens the prompt; written halfway down a brief ("Background… Task: /implement #42") it is plain text, and because the skill is user-invoked the agent cannot load it through the Skill tool either. Put `/implement #42` on the brief's first line, or for a subagent, point it at the skill's `SKILL.md` to read and follow. The trace check under *It's working if* catches this.
+The skill never loaded. A slash command expands only when it opens the prompt; written halfway down a brief ("Background… Task: /implement #42") it is plain text, and because the skill is user-invoked the agent cannot load it through the Skill tool either. Put `/implement #42` on the brief's first line of a new session. A subagent cannot run it at all: there the command stays plain text even on the first line, and the Skill tool refuses it. The trace check under *It's working if* catches this.
 
 **One ticket burned 150k tokens. Am I using it wrong?**
 

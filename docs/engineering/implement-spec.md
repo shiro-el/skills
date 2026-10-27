@@ -1,8 +1,8 @@
 ## What it does
 
-`implement-spec` takes a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) and its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket) and lands the whole thing in one run. The orchestrating [agent](https://www.aihero.dev/ai-coding-dictionary/agent) hands each ticket to an implementer [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) working in its own git worktree, merges each finished branch into a single **integration branch**, runs [code-review](https://aihero.dev/skills-code-review) over the result, and resolves the tickets.
+`implement-spec` takes one or more issues (a [spec](https://www.aihero.dev/ai-coding-dictionary/spec) with its [tickets](https://www.aihero.dev/ai-coding-dictionary/ticket), a single ticket, or a large issue with no tickets yet) and takes each one to a reviewed pull request in one run. Every issue becomes a **lane** with its own **integration branch**. The orchestrating [agent](https://www.aihero.dev/ai-coding-dictionary/agent) hands each ticket to an implementer [subagent](https://www.aihero.dev/ai-coding-dictionary/subagent) working in its own git worktree, merges each finished branch into its lane, runs the database and integration checks itself one lane at a time, runs [code-review](https://aihero.dev/skills-code-review) once per lane, has the findings fixed, and only then opens the lane's PR.
 
-It reads the tickets as a **task graph**, not a list. Blocking edges decide what can start, so at any moment there is a **frontier** of tickets whose blockers have all landed, and every ticket on the frontier runs at once. That is the difference from working the tickets one by one. The graph's shape sets the pace, not the tickets' order on the tracker.
+It reads the tickets as a **task graph**, not a list. Blocking edges decide what can start, so at any moment there is a **frontier** of tickets whose blockers have all landed, and every ticket on the frontier runs at once. That is the difference from working the tickets one by one. The graph's shape sets the pace, not the tickets' order on the tracker. With several issues, every lane's frontier runs at the same time, so the run replaces starting one `/implement` session per issue and passing messages between them.
 
 ## When to reach for it
 
@@ -11,25 +11,28 @@ You invoke this by typing `/implement-spec`, and the agent won't reach for it on
 | Your situation | Reach for |
 | --- | --- |
 | A spec, split into tickets with blocking edges, that you want landed in one run | `/implement-spec` |
+| Several issues you want built in parallel, one PR each | `/implement-spec SOPO-229 SOPO-230 SOPO-231` |
 | One ticket at a time, in your own [context window](https://www.aihero.dev/ai-coding-dictionary/context-window), [clearing](https://www.aihero.dev/ai-coding-dictionary/clearing) between tickets | [implement](https://aihero.dev/skills-implement) |
-| A spec that isn't split into tickets yet | [to-tickets](https://aihero.dev/skills-to-tickets) first |
+| A spec that isn't split into tickets yet | [to-tickets](https://aihero.dev/skills-to-tickets) first, or let `implement-spec` split it and record the split as an `Assumption:` on the issue |
 | A small piece of work with no real graph to it | [implement](https://aihero.dev/skills-implement) directly |
 
 ## Prerequisites
 
 - **An issue tracker.** The skill reads the tickets from, and resolves them on, the tracker [setup-matt-pocock-skills](https://aihero.dev/skills-setup-matt-pocock-skills) configured. If none has been configured, it stops and tells you to run that first rather than guessing.
-- **Tickets with blocking edges**, as [to-tickets](https://aihero.dev/skills-to-tickets) writes them. Without edges the graph is flat and every ticket starts at once.
+- **Tickets with blocking edges**, as [to-tickets](https://aihero.dev/skills-to-tickets) writes them. Without edges the graph is flat and every ticket starts at once. An issue with no tickets is either built as a single ticket or, when it is too big for one implementer, split by the run itself.
 - **A [harness](https://www.aihero.dev/ai-coding-dictionary/harness) that runs subagents in the background and gives each one a git worktree.** The skill exists to run tickets at the same time, so on a harness that runs subagents one at a time, it is only a slower `implement`.
 
 ## The integration branch
 
-Everything lands on one branch. Each implementer:
+Each lane lands on one branch. Each implementer:
 
-1. confirms its worktree is based on the integration branch before it starts,
+1. confirms its worktree is based on its lane's integration branch before it starts,
 2. builds its ticket with [tdd](https://aihero.dev/skills-tdd), red-green one slice at a time,
 3. merges the integration branch tip into its own branch before reporting done, so landing it is a fast-forward.
 
-The tracker decides whether a pull request exists at all. If your tracker closes work through PRs, or you ask for one, the skill opens a draft PR after the first merge and marks it ready at the end. Otherwise the run stops on the integration branch with every ticket resolved the way your tracker closes work, which works fully offline against a local markdown tracker.
+Implementers never start a database or container. The orchestrator runs that verification itself, one lane at a time on one database slot, so parallel lanes never fight over local infrastructure. A failing test gets one solo re-run; if it passes it is reported as flaky rather than fixed.
+
+The tracker decides whether a pull request exists at all. If your tracker closes work through PRs, or you ask for one, each lane's PR opens once, at the end, ready for review: after verification, review, fixes, and a check that parallel lanes did not pick the same migration version. Its body collects every `Assumption:` comment, each finding left unfixed with the reason, follow-up issues, and flaky tests. Otherwise the run stops on each integration branch with every ticket resolved the way your tracker closes work, which works fully offline against a local markdown tracker.
 
 Implementers talk to the orchestrator through [context pointers](https://www.aihero.dev/ai-coding-dictionary/context-pointer) (the spec, the ticket, shared exploration notes, earlier commits) rather than pasted summaries. This keeps each subagent's prompt small and leaves room in the orchestrator's window for the graph.
 
@@ -45,7 +48,7 @@ No, not any more. One user who liked the in-progress version had exactly this co
 
 **Its review and fix loop ran for hours, or kept "fixing" tickets that hadn't been built yet.**
 
-Both happen when `code-review` runs anywhere other than the one point the skill gives it. It compares the code against the whole spec, so it only makes sense once every ticket has landed. If it runs mid-run, every unbuilt ticket reads as a failure. The agent then builds that ticket, and that triggers another review. At the end, the skill runs `code-review` once and sends every finding to one fix subagent, but it doesn't yet say when to stop after that fix. One user reported a five-ticket feature where "the review and fix loop took roughly four hours". If you see a second broad review start, tell it to run focused checks for the fixed findings and stop. Expect that first review to find real problems. The run's output is a draft that the review completes, not something to ship on its own.
+Both happen when `code-review` runs anywhere other than the one point the skill gives it. It compares the code against the whole spec, so it only makes sense once every ticket in the lane has landed. If it runs mid-run, every unbuilt ticket reads as a failure. The agent then builds that ticket, and that triggers another review. One user reported a five-ticket feature where "the review and fix loop took roughly four hours". The skill now gives each lane exactly one review, sends every finding to one fix subagent, and re-checks the fixes with focused tests only; a fix never triggers a second review. If you still see a second broad review start, that is the bug. Expect that first review to find real problems. The run's output is a draft that the review completes, not something to ship on its own.
 
 **Does it drive tdd like implement does?**
 
@@ -73,14 +76,16 @@ A worktree holds only what git tracks. Tests that read gitignored fixtures, loca
 - A ticket starts as soon as its last blocker lands on the integration branch, not when the whole run ends.
 - Every ticket's trace shows `tdd` running, with a failing test before the code.
 - Merges into the integration branch are fast-forwards, not conflict resolutions.
-- The run ends on one branch with every ticket resolved, and a PR only if your tracker wanted one.
+- Only one lane at a time holds a database slot, and none is left running at the end.
+- Each lane's trace shows one `code-review` call, after its verification and before its PR.
+- The run ends with one table, a row per lane, and a PR per lane only if your tracker wanted one.
 
 ## Where it fits
 
 `implement-spec` is the build step of the main chain, as the parallel alternative to running [implement](https://aihero.dev/skills-implement) once per ticket:
 
 ```txt
-grill-with-docs → to-spec → to-tickets → implement-spec → retro
+grill-with-docs → to-spec → to-tickets → implement-spec (code-review per lane) → retro
 ```
 
-Its neighbours are [to-tickets](https://aihero.dev/skills-to-tickets), which declares the blocking edges it reads as a task graph, and [code-review](https://aihero.dev/skills-code-review), which it runs over the integration branch before closing out. [ask-matt](https://aihero.dev/skills-ask-matt) is the router over the whole set when you are not sure which flow you are in.
+Its neighbours are [to-tickets](https://aihero.dev/skills-to-tickets), which declares the blocking edges it reads as a task graph, and [code-review](https://aihero.dev/skills-code-review), which it runs over each lane's integration branch before opening that lane's PR. [ask-matt](https://aihero.dev/skills-ask-matt) is the router over the whole set when you are not sure which flow you are in.
